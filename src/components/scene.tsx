@@ -1,13 +1,26 @@
-// https://twitter.com/lusionltd/status/1701534187545636964
-// https://lusion.co
-
-import * as THREE from 'three'
-import { useRef, useReducer, useMemo } from 'react'
+import { ReactNode, useMemo, useReducer, useRef } from "react"
 import { Canvas, useFrame } from '@react-three/fiber'
-import { useGLTF, MeshTransmissionMaterial, Environment, Lightformer } from '@react-three/drei'
-import { CuboidCollider, BallCollider, Physics, RigidBody } from '@react-three/rapier'
-import { EffectComposer, N8AO } from '@react-three/postprocessing'
-import { easing } from 'maath'
+import { RigidBody, BallCollider, RapierRigidBody, Physics, CuboidCollider } from '@react-three/rapier'
+import * as THREE from 'three'
+import { Environment, Lightformer, MeshTransmissionMaterial, useGLTF } from "@react-three/drei"
+import { easing } from "maath"
+import { EffectComposer, N8AO } from "@react-three/postprocessing"
+
+interface ConnectorProps {
+  position?: [number, number, number]
+  children?: ReactNode
+  vec?: THREE.Vector3
+  scale?: number
+  r?: (range: number) => number
+  accent?: boolean
+  color?: THREE.Color | string | number
+}
+
+interface ModelProps {
+  children?: ReactNode
+  color?: THREE.Color | string | number
+  roughness?: number
+}
 
 const accents = ['#4060ff', '#20ffa0', '#ff4060', '#ffcc00']
 const shuffle = (accent = 0) => [
@@ -22,28 +35,18 @@ const shuffle = (accent = 0) => [
   { color: accents[accent], roughness: 0.1, accent: true }
 ]
 
-export const App = () => (
-  <div className="container">
-    <div className="nav">
-      <h1 className="label" />
-      <div />
-      <span className="caption" />
-      <div />
-      <a href="https://lusion.co/">
-        <div className="button">VISIT LUSION</div>
-      </a>
-      <div className="button gray">///</div>
-    </div>
-    <Scene style={{ borderRadius: 20 }} />
-  </div>
-)
-
-function Scene(props) {
-  const [accent, click] = useReducer((state) => ++state % accents.length, 0)
+const Scene = (props: any) => {
+  const [accent, click] = useReducer((state) => ++state % accents.length, 0);
   const connectors = useMemo(() => shuffle(accent), [accent])
   return (
-    <Canvas onClick={click} shadows dpr={[1, 1.5]} gl={{ antialias: false }} camera={{ position: [0, 0, 15], fov: 17.5, near: 1, far: 20 }} {...props}>
-      <color attach="background" args={['#141622']} />
+    <Canvas
+      onClick={click}
+      shadows
+      dpr={[1, 1.5]}
+      gl={{ antialias: false }}
+      camera={{ position: [0, 0, 15], fov: 17.5, near: 1, far: 20 }}
+      {...props}>
+      <color attach="background" args={["#141622"]} />
       <ambientLight intensity={0.4} />
       <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} castShadow />
       <Physics /*debug*/ gravity={[0, 0, 0]}>
@@ -55,7 +58,7 @@ function Scene(props) {
           </Model>
         </Connector>
       </Physics>
-      <EffectComposer disableNormalPass multisampling={8}>
+      <EffectComposer multisampling={8} enableNormalPass={false}>
         <N8AO distanceFalloff={1} aoRadius={1} intensity={4} />
       </EffectComposer>
       <Environment resolution={256}>
@@ -70,26 +73,8 @@ function Scene(props) {
   )
 }
 
-function Connector({ position, children, vec = new THREE.Vector3(), scale, r = THREE.MathUtils.randFloatSpread, accent, ...props }) {
-  const api = useRef()
-  const pos = useMemo(() => position || [r(10), r(10), r(10)], [])
-  useFrame((state, delta) => {
-    delta = Math.min(0.1, delta)
-    api.current?.applyImpulse(vec.copy(api.current.translation()).negate().multiplyScalar(0.2))
-  })
-  return (
-    <RigidBody linearDamping={4} angularDamping={1} friction={0.1} position={pos} ref={api} colliders={false}>
-      <CuboidCollider args={[0.38, 1.27, 0.38]} />
-      <CuboidCollider args={[1.27, 0.38, 0.38]} />
-      <CuboidCollider args={[0.38, 0.38, 1.27]} />
-      {children ? children : <Model {...props} />}
-      {accent && <pointLight intensity={4} distance={2.5} color={props.color} />}
-    </RigidBody>
-  )
-}
-
 function Pointer({ vec = new THREE.Vector3() }) {
-  const ref = useRef()
+  const ref = useRef<RapierRigidBody>(null)
   useFrame(({ mouse, viewport }) => {
     ref.current?.setNextKinematicTranslation(vec.set((mouse.x * viewport.width) / 2, (mouse.y * viewport.height) / 2, 0))
   })
@@ -100,16 +85,82 @@ function Pointer({ vec = new THREE.Vector3() }) {
   )
 }
 
-function Model({ children, color = 'white', roughness = 0, ...props } : any) {
-  const ref = useRef()
-  const { nodes, materials } = useGLTF('/c-transformed.glb')
+function Connector({
+  position,
+  children,
+  vec = new THREE.Vector3(),
+  scale,
+  r = THREE.MathUtils.randFloatSpread,
+  accent,
+  color,
+  ...props
+}: ConnectorProps) {
+  // Define the ref with the type RapierRigidBody (from @react-three/rapier)
+  const api = useRef<RapierRigidBody>(null)
+
+  // Memoize the position, using the provided position or a randomly generated one
+  const pos = useMemo<[number, number, number]>(() => position || [r(10), r(10), r(10)], [position, r])
+
   useFrame((state, delta) => {
-    easing.dampC(ref.current?.material.color, color, 0.2, delta)
+    delta = Math.min(0.1, delta)
+    if (api.current) {
+      api.current.applyImpulse(
+        vec.copy(api.current.translation()).negate().multiplyScalar(0.2),
+        true
+      )
+    }
   })
+
   return (
-    <mesh ref={ref} castShadow receiveShadow scale={10} geometry={nodes.connector.geometry}>
-      <meshStandardMaterial metalness={0.2} roughness={roughness} map={materials.base.map} />
+    <RigidBody
+      linearDamping={4}
+      angularDamping={1}
+      friction={0.1}
+      position={pos}
+      ref={api}
+      colliders={false}
+    >
+      <CuboidCollider args={[0.38, 1.27, 0.38]} />
+      <CuboidCollider args={[1.27, 0.38, 0.38]} />
+      <CuboidCollider args={[0.38, 0.38, 1.27]} />
+      {children ? children : <Model {...props} />}
+      {accent && <pointLight intensity={4} distance={2.5} color={color} />}
+    </RigidBody>
+  )
+}
+
+function Model({ children, color = 'white', roughness = 0, ...props }: ModelProps) {
+  // Define ref with type THREE.Mesh
+  const ref = useRef<THREE.Mesh>(null)
+
+  // Load GLTF model
+  const { nodes, materials } = useGLTF('/c-transformed.glb') as any // Adjust typing for your GLTF file if needed
+
+  // Animation frame to update color
+  useFrame((state, delta) => {
+    if (ref.current) {
+      const material = ref.current.material as THREE.MeshStandardMaterial
+      easing.dampC(material.color, color, 0.2, delta)
+    }
+  })
+
+  return (
+    <mesh
+      ref={ref}
+      castShadow
+      receiveShadow
+      scale={10}
+      geometry={nodes.connector.geometry}
+      {...props}
+    >
+      <meshStandardMaterial
+        metalness={0.2}
+        roughness={roughness}
+        map={materials.base.map}
+      />
       {children}
     </mesh>
   )
 }
+
+export default Scene
