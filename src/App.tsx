@@ -1,16 +1,21 @@
 import { Route, BrowserRouter, Routes } from "react-router-dom"
 import LandingPage from "./modules/landing-page/landing-page"
-import SignIn from "./modules/signin/singin"
+import Login from "./modules/signin/login"
+import { QueryClient, QueryClientProvider } from 'react-query';
 
 function App() {
 
+  const queryClient = new QueryClient();
+
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="" element={<LandingPage />} />
-        <Route  path="/signin" element={<SignIn />}/>
-      </Routes>
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <Routes>
+          <Route path="" element={<LandingPage />} />
+          <Route path="/login" element={<Login />} />
+        </Routes>
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 
