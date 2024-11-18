@@ -8,6 +8,9 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation } from "react-query";
 import { z } from "zod";
+import { useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { setToken } from "@/redux/authSlice";
 
 
 
@@ -15,6 +18,8 @@ import { z } from "zod";
 
 const LoginForm = () => {
     const [showPassword, setShowPassword] = useState(false);
+    const dispatch = useDispatch();
+    const navigate = useNavigate();
     const userSchema = z.object({
         email: z.string().email({ message: "Invalid email adress" }),
         password: z.string().min(8, { message: "Password must be at least 8 characters long" })
@@ -31,7 +36,10 @@ const LoginForm = () => {
 
     const mutation = useMutation(login, {
         onSuccess: (data) => {
-            console.log("login successful", data);
+            if (data.token) {
+                dispatch(setToken(data.token));
+                navigate("/dashboard");
+            }
         },
         onError: (error: any) => {
             console.log("login failed", error.message)
