@@ -18,7 +18,7 @@ const Login = () => {
         <LoginForm />
         <div className="mt-3">
           <span>you don't have an accont?</span>
-          <Button onClick={() => handleNavigation("/sigin")} variant="link" >Signin</Button>
+          <Button onClick={() => handleNavigation("/signin")} variant="link" >Signin</Button>
         </div>
       </div>
       <div className="w-1/3 relative">
